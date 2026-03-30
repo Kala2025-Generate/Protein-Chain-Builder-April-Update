@@ -132,10 +132,12 @@
           flash.style.display = 'block';
           setTimeout(function () { flash.style.display = 'none'; }, 1400);
 
+          // Correct Streamlit component message format — fields at top level
           window.parent.postMessage({
             isStreamlitMessage: true,
             type: 'streamlit:setComponentValue',
-            args: { value: order, dataType: 'json' }
+            value: order,
+            dataType: 'json'
           }, '*');
 
           setHeight();
@@ -148,10 +150,11 @@
     function setHeight() {
       setTimeout(function () {
         var h = document.body.scrollHeight + 6;
+        // Correct format — height at top level
         window.parent.postMessage({
           isStreamlitMessage: true,
           type: 'streamlit:setFrameHeight',
-          args: { height: h }
+          height: h
         }, '*');
       }, 80);
     }
@@ -163,10 +166,11 @@
       }
     });
 
+    // Correct format — apiVersion at top level
     window.parent.postMessage({
       isStreamlitMessage: true,
       type: 'streamlit:componentReady',
-      args: { apiVersion: 1 }
+      apiVersion: 1
     }, '*');
   </script>
 </body>
