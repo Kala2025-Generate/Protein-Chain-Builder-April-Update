@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      padding: 6px 6px 0;
+      font-family: 'Courier New', monospace;
+      background: transparent;
+    }
+    #container {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 3px;
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 8px;
+      min-height: 56px;
+    }
+    .frag-block {
+      display: inline-flex;
+      flex-direction: column;
+      cursor: grab;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      user-select: none;
+      transition: box-shadow 0.12s ease;
+    }
+    .frag-block:hover {
+      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+    }
+    .frag-block:active { cursor: grabbing; }
+    .sortable-ghost  { opacity: 0.3; }
+    .sortable-chosen { box-shadow: 0 5px 18px rgba(0,0,0,0.28) !important; z-index: 9999; }
+    .frag-name {
+      font-size: 0.67rem;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 168px;
+    }
+    .frag-seq {
+      font-size: 0.78rem;
+      padding: 2px 5px 3px;
+      letter-spacing: 0.02em;
+      max-width: 168px;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    #hint {
+      font-size: 0.7rem;
+      color: #aaa;
+      text-align: center;
+      padding: 4px 0 3px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    #flash {
+      display: none;
+      font-size: 0.7rem;
+      color: #2196F3;
+      text-align: center;
+      padding: 3px 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="hint">☰&nbsp; Drag blocks to reorder &nbsp;·&nbsp; release to apply</div>
+  <div id="flash">✓ Order updated</div>
+
+  <script>
+    var sortable = null;
+
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function render(fragments, palette) {
+      var c = document.getElementById('container');
+      c.innerHTML = '';
+
+      if (!fragments || !fragments.length) {
+        c.innerHTML = '<div style="color:#aaa;font-size:0.8rem;padding:4px">No fragments in construct</div>';
+        setHeight();
+        return;
+      }
+
+      for (var i = 0; i < fragments.length; i++) {
+        var f   = fragments[i];
+        var fg  = palette[i % palette.length][0];
+        var bg  = palette[i % palette.length][1];
+        var seq = f.sequence.length > 38 ? f.sequence.slice(0, 38) + '\u2026' : f.sequence;
+
+        var el = document.createElement('div');
+        el.className    = 'frag-block';
+        el.dataset.orig = i;
+        el.innerHTML =
+          '<div class="frag-name" style="color:' + esc(fg) + ';background:' + esc(bg) + '" title="' + esc(f.name) + '">' + esc(f.name) + '</div>' +
+          '<div class="frag-seq"  style="color:' + esc(fg) + ';background:' + esc(bg) + '" title="' + esc(f.name) + ': ' + esc(f.sequence) + '">' + esc(seq) + '</div>';
+        c.appendChild(el);
+      }
+
+      if (sortable) { sortable.destroy(); }
+      sortable = Sortable.create(c, {
+        animation: 150,
+        ghostClass:  'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: function (evt) {
+          if (evt.oldIndex === evt.newIndex) return;
+          var blocks = c.querySelectorAll('.frag-block');
+          var order  = [];
+          for (var k = 0; k < blocks.length; k++) {
+            order.push(parseInt(blocks[k].dataset.orig, 10));
+          }
+
+          var flash = document.getElementById('flash');
+          flash.style.display = 'block';
+          setTimeout(function () { flash.style.display = 'none'; }, 1400);
+
+          window.parent.postMessage({
+            isStreamlitMessage: true,
+            type: 'streamlit:setComponentValue',
+            args: { value: order, dataType: 'json' }
+          }, '*');
+
+          setHeight();
+        }
+      });
+
+      setHeight();
+    }
+
+    function setHeight() {
+      setTimeout(function () {
+        var h = document.body.scrollHeight + 6;
+        window.parent.postMessage({
+          isStreamlitMessage: true,
+          type: 'streamlit:setFrameHeight',
+          args: { height: h }
+        }, '*');
+      }, 80);
+    }
+
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'streamlit:render') {
+        var a = e.data.args || {};
+        render(a.fragments || [], a.palette || []);
+      }
+    });
+
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: 'streamlit:componentReady',
+      args: { apiVersion: 1 }
+    }, '*');
+  </script>
+</body>
+</html>
